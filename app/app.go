@@ -8,6 +8,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	client "github.com/taufikardiyan28/chat/client"
+	room "github.com/taufikardiyan28/chat/room"
 )
 
 var upgrader = websocket.Upgrader{
@@ -37,6 +38,10 @@ type (
 func (a *Server) Start() {
 	a.Clients = make(map[string]*client.Connection)
 
+	// initiate room list
+	r := make(map[string]*room.ChatRoom)
+	room.Rooms = &r
+
 	http.HandleFunc("/ws", a.handleWSConnections)
 	log.Printf("http server started on :%d", a.Config.Port)
 	http.ListenAndServe(fmt.Sprintf(":%d", a.Config.Port), nil)
@@ -55,16 +60,16 @@ func (a *Server) handleWSConnections(w http.ResponseWriter, r *http.Request) {
 	//defer ws.Close()
 
 	username := r.URL.Query().Get("username")
-	key := strings.TrimSpace(username)
+	id := strings.TrimSpace(username)
 
-	if a.isKeyExists(key) {
-		log.Printf("Key %s is exists", key)
+	if a.isClientIDExists(id) {
+		log.Printf("Key %s is exists", id)
 		ws.Close()
 		return
 	}
 
 	c_info := client.UserInfo{
-		Key:      key,
+		ID:       id,
 		UserName: username,
 	}
 	c := &client.Connection{
@@ -72,13 +77,13 @@ func (a *Server) handleWSConnections(w http.ResponseWriter, r *http.Request) {
 		UserInfo: c_info,
 		Public:   &a.Clients,
 	}
-	a.Clients[key] = c
+	a.Clients[id] = c
 	go c.Listen()
 }
 
-func (a *Server) isKeyExists(key string) bool {
-	for clientKey := range a.Clients {
-		if clientKey == key {
+func (a *Server) isClientIDExists(id string) bool {
+	for client_id := range a.Clients {
+		if client_id == id {
 			return true
 		}
 	}
