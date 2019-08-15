@@ -189,6 +189,77 @@ func (c *Connection) createRoom(roomName string) {
 func (c *Connection) joinRoom(roomId string) {
 	r, exists := room.GetRoom(roomId)
 	if !exists {
+		c.privateChannel <- c.generateErrorResponse("Room ID not found")
+	} else {
+		var IClient interfaces.Client
+		IClient = c
+		r.Join(c.ID, IClient)
+
+		sender_info := UserInfo{
+			ID:       c.ID,
+			UserName: c.UserName,
+			NickName: c.NickName,
+			Phone:    c.Phone,
+		}
+
+		msg := message.Message{
+			Time:        time.Now(),
+			ContentType: "text",
+			Content:     fmt.Sprintf("User %s Joined the room", c.UserName),
+		}
+
+		msgPayload := message.MessagePayload{
+			Dst:     r.ID,
+			DstType: "room",
+			Message: msg,
+		}
+		respMsg := message.ResponseMessage{
+			Status:         0,
+			From:           sender_info,
+			MessagePayload: msgPayload,
+			Error:          "",
+		}
+
+		r.Broadcast("", respMsg)
+	}
+}
+
+func (c *Connection) createRoom(roomName string) {
+	new_room_id := uuid.NewV4().String()
+	r := room.NewRoom(new_room_id, roomName)
+	var IClient interfaces.Client
+	IClient = c
+	r.Join(c.ID, IClient)
+	sender_info := UserInfo{
+		ID:       new_room_id,
+		UserName: roomName,
+		NickName: roomName,
+		Phone:    roomName,
+	}
+
+	msg := message.Message{
+		Time:        time.Now(),
+		ContentType: "text",
+		Content:     fmt.Sprintf("Room Created id : %s", new_room_id),
+	}
+
+	msgPayload := message.MessagePayload{
+		Dst:     new_room_id,
+		DstType: "room",
+		Message: msg,
+	}
+	respMsg := message.ResponseMessage{
+		Status:         0,
+		From:           sender_info,
+		MessagePayload: msgPayload,
+		Error:          "",
+	}
+	c.privateChannel <- respMsg
+}
+
+func (c *Connection) joinRoom(roomId string) {
+	r, exists := room.GetRoom(roomId)
+	if !exists {
 		c.privateChannel <- message.GenerateErrorResponse(c.ID, "Room ID not found")
 	} else {
 		var IClient interfaces.Client
