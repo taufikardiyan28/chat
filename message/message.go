@@ -5,6 +5,7 @@ import (
 )
 
 type (
+	From           map[string]interface{}
 	MessagePayload struct {
 		Dst     string  `json:"dst"`      //public, room_id, username
 		DstType string  `json:"dst_type"` //private, room
@@ -25,3 +26,32 @@ type (
 		Error string `json:"error"`
 	}
 )
+
+func GenerateErrorResponse(dstId string, text string) ResponseMessage {
+	sender_info := From{
+		"id":       "system",
+		"username": "System",
+		"nickname": "System",
+		"phone":    "System",
+	}
+
+	msg := Message{
+		Time:        time.Now(),
+		ContentType: "text",
+		Content:     text,
+	}
+
+	msgPayload := MessagePayload{
+		Dst:     dstId,
+		DstType: "private",
+		Message: msg,
+	}
+	resp := ResponseMessage{
+		Status:         1,
+		From:           sender_info,
+		MessagePayload: msgPayload,
+		Error:          text,
+	}
+
+	return resp
+}

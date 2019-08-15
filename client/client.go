@@ -7,7 +7,9 @@ import (
 
 	"github.com/gorilla/websocket"
 	uuid "github.com/satori/go.uuid"
+	interfaces "github.com/taufikardiyan28/chat/interfaces"
 	message "github.com/taufikardiyan28/chat/message"
+	room "github.com/taufikardiyan28/chat/room"
 )
 
 type (
@@ -15,11 +17,11 @@ type (
 		*websocket.Conn
 		UserInfo
 		Public         *map[string]*Connection
-		PrivateChannel chan message.ResponseMessage
+		privateChannel chan message.ResponseMessage
 	}
 
 	UserInfo struct {
-		Key      string `json:"key"`
+		ID       string `json:"id"`
 		UserId   int64  `json:"-"`
 		UserName string `json:"username"`
 		NickName string `json:"nickname"`
@@ -28,6 +30,14 @@ type (
 	}
 )
 
+func (c *Connection) GetID() string {
+	return c.ID
+}
+
+func (c *Connection) GetPrivateChannel() chan message.ResponseMessage {
+	return c.privateChannel
+}
+
 // start listen for client incoming messages
 func (c *Connection) Listen() {
 	defer func() {
@@ -35,10 +45,10 @@ func (c *Connection) Listen() {
 			log.Println("Error", fmt.Sprintf("%v", r))
 		}*/
 		c.Close()
-		delete(*c.Public, c.Key)
+		delete(*c.Public, c.ID)
 	}()
 
-	c.PrivateChannel = make(chan message.ResponseMessage)
+	c.privateChannel = make(chan message.ResponseMessage)
 
 	go c.handleClientMessage()
 
@@ -66,12 +76,12 @@ func (c *Connection) Listen() {
 
 func (c *Connection) handleClientMessage() {
 	for {
-		msg := <-c.PrivateChannel
+		msg := <-c.privateChannel
 		err := c.WriteJSON(msg)
 		if err != nil {
 			if strings.Contains(err.Error(), "websocket: close") {
 				c.Close()
-				delete(*c.Public, c.Key)
+				delete(*c.Public, c.ID)
 				return
 			}
 			fmt.Println(err)
@@ -84,17 +94,17 @@ func (c *Connection) Send(msg message.MessagePayload) {
 	msg.Message.ID = uuid.NewV4().String()
 
 	switch msg.DstType {
-	case "private":
-		c.sendToPrivate(msg.Dst, msg)
+	case "room":
+		c.sendToRoom(msg.Dst, msg)
 		break
 	default:
-		c.sendToRoom(msg.Dst, msg)
+		c.sendToPrivate(msg.Dst, msg)
 	}
 }
 
-func (c *Connection) sendToPrivate(to string, msg message.MessagePayload) {
+func (c *Connection) createResponse(msg message.MessagePayload) message.ResponseMessage {
 	c_info := UserInfo{
-		Key:      c.Key,
+		ID:       c.ID,
 		UserName: c.UserName,
 		NickName: c.NickName,
 		Phone:    c.Phone,
@@ -103,54 +113,113 @@ func (c *Connection) sendToPrivate(to string, msg message.MessagePayload) {
 	// set to current time
 	msg.Message.Time = time.Now()
 
-	resp := message.ResponseMessage{
+	respMsg := message.ResponseMessage{
 		Status:         0,
 		From:           c_info,
 		MessagePayload: msg,
 	}
-
-	dstClient, exists := (*c.Public)[to]
-	if !exists {
-		c.PrivateChannel <- c.generateErrorResponse(fmt.Sprintf("User \"%s\" not found", to))
-	} else {
-		dstClient.PrivateChannel <- resp
-	}
-
+	return respMsg
 }
 
-func (c *Connection) sendToRoom(group_id string, msg message.MessagePayload) {
+func (c *Connection) sendToPrivate(to string, msg message.MessagePayload) {
+	dstClient, exists := (*c.Public)[to]
+	if !exists {
+		c.privateChannel <- message.GenerateErrorResponse(c.ID, fmt.Sprintf("User \"%s\" not found", to))
+	} else {
+		resp := c.createResponse(msg)
+		dstClient.privateChannel <- resp
+	}
+}
+
+func (c *Connection) sendToRoom(room_id string, msg message.MessagePayload) {
 	c.WriteJSON(msg)
+	r, exists := room.GetRoom(room_id)
+	if !exists {
+		c.privateChannel <- message.GenerateErrorResponse(c.ID, "Room ID not found")
+	} else {
+		respMsg := c.createResponse(msg)
+		r.Broadcast(c.ID, respMsg)
+	}
 }
 
 func (c *Connection) onCMD(cmd string, cmdValue string) {
-
+	switch cmd {
+	case "create-room":
+		c.createRoom(cmdValue)
+		break
+	case "join-room":
+		c.joinRoom(cmdValue)
+		break
+	}
 }
 
-func (c *Connection) generateErrorResponse(text string) message.ResponseMessage {
+func (c *Connection) createRoom(roomName string) {
+	new_room_id := uuid.NewV4().String()
+	r := room.NewRoom(new_room_id, roomName)
+	var IClient interfaces.Client
+	IClient = c
+	r.Join(c.ID, IClient)
 	sender_info := UserInfo{
-		Key:      "system",
-		UserName: "System",
-		NickName: "System",
-		Phone:    "System",
+		ID:       new_room_id,
+		UserName: roomName,
+		NickName: roomName,
+		Phone:    roomName,
 	}
 
 	msg := message.Message{
 		Time:        time.Now(),
 		ContentType: "text",
-		Content:     text,
+		Content:     fmt.Sprintf("Room Created id : %s", new_room_id),
 	}
 
 	msgPayload := message.MessagePayload{
-		Dst:     c.Key,
-		DstType: "private",
+		Dst:     new_room_id,
+		DstType: "room",
 		Message: msg,
 	}
-	resp := message.ResponseMessage{
-		Status:         1,
+	respMsg := message.ResponseMessage{
+		Status:         0,
 		From:           sender_info,
 		MessagePayload: msgPayload,
-		Error:          text,
+		Error:          "",
 	}
+	c.privateChannel <- respMsg
+}
 
-	return resp
+func (c *Connection) joinRoom(roomId string) {
+	r, exists := room.GetRoom(roomId)
+	if !exists {
+		c.privateChannel <- message.GenerateErrorResponse(c.ID, "Room ID not found")
+	} else {
+		var IClient interfaces.Client
+		IClient = c
+		r.Join(c.ID, IClient)
+
+		sender_info := UserInfo{
+			ID:       c.ID,
+			UserName: c.UserName,
+			NickName: c.NickName,
+			Phone:    c.Phone,
+		}
+
+		msg := message.Message{
+			Time:        time.Now(),
+			ContentType: "text",
+			Content:     fmt.Sprintf("User %s Joined the room", c.UserName),
+		}
+
+		msgPayload := message.MessagePayload{
+			Dst:     r.ID,
+			DstType: "room",
+			Message: msg,
+		}
+		respMsg := message.ResponseMessage{
+			Status:         0,
+			From:           sender_info,
+			MessagePayload: msgPayload,
+			Error:          "",
+		}
+
+		r.Broadcast("", respMsg)
+	}
 }
