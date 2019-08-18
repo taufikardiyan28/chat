@@ -8,6 +8,8 @@ import (
 
 	"github.com/gorilla/websocket"
 	client "github.com/taufikardiyan28/chat/client"
+	db "github.com/taufikardiyan28/chat/model"
+	MessagesModel "github.com/taufikardiyan28/chat/model/messages"
 	room "github.com/taufikardiyan28/chat/room"
 )
 
@@ -36,6 +38,16 @@ type (
 
 //Start the application
 func (a *Server) Start() {
+	DB := db.Conn{}
+	err := DB.Connect("mongodb://localhost:27017")
+	if err != nil {
+		log.Panic(err)
+		return
+	}
+	db.Pool = &DB
+
+	//defer db.Pool.Disconnect(context.Background())
+
 	a.Clients = make(map[string]*client.Connection)
 
 	// initiate room list
@@ -78,7 +90,10 @@ func (a *Server) handleWSConnections(w http.ResponseWriter, r *http.Request) {
 		Public:   &a.Clients,
 	}
 	a.Clients[id] = c
-	go c.Listen()
+
+	m := MessagesModel.Message{}
+	m.Get()
+	go c.Start()
 }
 
 func (a *Server) isClientIDExists(id string) bool {
