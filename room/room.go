@@ -11,8 +11,14 @@ type (
 	ChatRoom struct {
 		ID        string //UUIDv4
 		Name      string
+		CreatedBy string
 		CreatedAt time.Time
+		Members   RoomMember
 		Clients   map[string]interfaces.Client
+	}
+	RoomMember struct {
+		ID   string
+		Role string
 	}
 )
 
@@ -33,6 +39,7 @@ func NewRoom(room_id string, name string) *ChatRoom {
 
 func GetRoom(room_id string) (*ChatRoom, bool) {
 	r, exists := (*Rooms)[room_id]
+
 	return r, exists
 }
 
@@ -49,7 +56,7 @@ func (c *ChatRoom) Join(client_id string, client interfaces.Client) {
 	c.Clients[client_id] = client
 }
 
-func (c *ChatRoom) Broadcast(sender_id string, msg message.ResponseMessage) {
+func (c *ChatRoom) Broadcast(sender_id string, msg message.MessagePayload) {
 	for _, client := range c.Clients {
 		if client.GetID() != sender_id {
 			client.GetPrivateChannel() <- msg

@@ -7,8 +7,8 @@ import (
 type (
 	Client interface {
 		GetID() string
-		Listen()
+		Start()
 		Send(msg message.MessagePayload)
-		GetPrivateChannel() chan message.ResponseMessage
+		GetPrivateChannel() chan message.MessagePayload
 	}
 )
