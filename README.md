@@ -21,11 +21,11 @@ go build
 Edit config/*.yaml file and change your port and mysql database configuration
 
 #### Run the app
-```
-use default development configuration
+```bash
+#use default development configuration
 go run main.go
 
-or with custom configuration file
+#or with custom configuration file
 go run main.go --config=<your_config_file>
 ```
 
