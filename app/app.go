@@ -2,51 +2,46 @@ package app
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 
+	"github.com/taufikardiyan28/chat/db"
+	"github.com/taufikardiyan28/chat/interfaces"
+
 	"github.com/gorilla/websocket"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	client "github.com/taufikardiyan28/chat/client"
-	db "github.com/taufikardiyan28/chat/model"
-	MessagesModel "github.com/taufikardiyan28/chat/model/messages"
+	"github.com/taufikardiyan28/chat/helper"
 	room "github.com/taufikardiyan28/chat/room"
 )
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
-		/*token := r.Header.Get("Sec-WebSocket-Protocol")
-		fmt.Println("token", token)
-		if strings.TrimSpace(token) != "tes" {
-			fmt.Println(token)
-			return false
-		}*/
 		return true
 	},
 }
 
 type (
 	Server struct {
-		Config  *Config
+		Config  *helper.Configuration
 		Clients map[string]*client.Connection
-	}
-
-	Config struct {
-		Port int `yaml:"port"`
+		DB      interfaces.Database
 	}
 )
 
 //Start the application
 func (a *Server) Start() {
-	DB := db.Conn{}
-	err := DB.Connect("mongodb://localhost:27017")
-	if err != nil {
-		log.Panic(err)
-		return
-	}
-	db.Pool = &DB
-
-	//defer db.Pool.Disconnect(context.Background())
+	e := echo.New()
+	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
+		Format: "${time_rfc3339}\r\n    method=${method}, uri=${uri}, status=${status} remote_ip=${remote_ip}\n",
+	}))
+	e.Use(middleware.Recover())
+	//CORS
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{echo.GET, echo.HEAD, echo.PUT, echo.PATCH, echo.POST, echo.DELETE},
+	}))
 
 	a.Clients = make(map[string]*client.Connection)
 
@@ -54,51 +49,63 @@ func (a *Server) Start() {
 	r := make(map[string]*room.ChatRoom)
 	room.Rooms = &r
 
-	http.HandleFunc("/ws", a.handleWSConnections)
-	log.Printf("http server started on :%d", a.Config.Port)
-	http.ListenAndServe(fmt.Sprintf(":%d", a.Config.Port), nil)
+	dbcon, err := db.NewConnection(a.Config)
+
+	if err != nil {
+		panic(err)
+	}
+
+	if err := dbcon.Ping(); err != nil {
+		panic(err)
+	}
+
+	a.DB = dbcon
+
+	e.HideBanner = true
+
+	e.Static("/", "public")
+	e.File("/demo", "web/index.html")
+
+	e.GET("/ws", a.handleWSConnections)
+	e.Logger.Fatal(e.Start(fmt.Sprintf(":%d", a.Config.Port)))
 }
 
 //Handle websocket connection
-func (a *Server) handleWSConnections(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	ws, err := upgrader.Upgrade(w, r, nil)
+func (a *Server) handleWSConnections(c echo.Context) error {
+	userId := c.QueryParam("id")
+	id := strings.TrimSpace(userId)
+
+	a.closePreviousConnection(id)
+
+	c_info, err := a.DB.GetUserInfo(id)
 	if err != nil {
-		fmt.Println("ERROR", err)
-		//ws.WriteJSON(map[string]interface{}{"status": 1, "msg": "Unauthorized"})
-		//ws.Close()
-		return
-	}
-	//defer ws.Close()
-
-	username := r.URL.Query().Get("username")
-	id := strings.TrimSpace(username)
-
-	if a.isClientIDExists(id) {
-		log.Printf("Key %s is exists", id)
-		ws.Close()
-		return
+		fmt.Println(err)
+		return c.JSON(401, map[string]interface{}{"status": "error", "msg": err})
 	}
 
-	c_info := client.UserInfo{
-		ID:       id,
-		UserName: username,
+	ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
+	if err != nil {
+		fmt.Println(err)
+		return c.JSON(401, map[string]interface{}{"status": "error", "msg": err})
 	}
-	c := &client.Connection{
-		Conn:     ws,
-		UserInfo: c_info,
-		Public:   &a.Clients,
-	}
-	a.Clients[id] = c
+	defer ws.Close()
 
-	m := MessagesModel.Message{}
-	m.Get()
-	go c.Start()
+	clientCon := &client.Connection{
+		Conn:        ws,
+		User:        c_info,
+		OnlineUsers: &a.Clients,
+		DB:          a.DB,
+	}
+	a.Clients[id] = clientCon
+	clientCon.Start()
+	return err
 }
 
-func (a *Server) isClientIDExists(id string) bool {
+func (a *Server) closePreviousConnection(id string) bool {
 	for client_id := range a.Clients {
 		if client_id == id {
+			a.Clients[client_id].Close()
+			delete(a.Clients, client_id)
 			return true
 		}
 	}

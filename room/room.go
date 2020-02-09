@@ -4,7 +4,7 @@ import (
 	"time"
 
 	interfaces "github.com/taufikardiyan28/chat/interfaces"
-	message "github.com/taufikardiyan28/chat/message"
+	MessageModel "github.com/taufikardiyan28/chat/model/messages"
 )
 
 type (
@@ -56,7 +56,7 @@ func (c *ChatRoom) Join(client_id string, client interfaces.Client) {
 	c.Clients[client_id] = client
 }
 
-func (c *ChatRoom) Broadcast(sender_id string, msg message.MessagePayload) {
+func (c *ChatRoom) Broadcast(sender_id string, msg MessageModel.MessagePayload) {
 	for _, client := range c.Clients {
 		if client.GetID() != sender_id {
 			client.GetPrivateChannel() <- msg

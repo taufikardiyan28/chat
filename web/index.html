@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>WebSocket</title>
+  <style>
+    table {
+      font-family: "Trebuchet MS", Arial, Helvetica, sans-serif;
+      border-collapse: collapse;
+    }
+    td, th {
+      border: 1px solid #ddd;
+      padding: 8px;
+    }
+    
+    tr:nth-child(even){background-color: #f2f2f2;}
+    
+    tr:hover {background-color: #ddd;}
+    
+    th {
+      padding-top: 12px;
+      padding-bottom: 12px;
+      text-align: left;
+      background-color: #4CAF50;
+      color: white;
+    }
+    </style>
+</head>
+
+<body>
+
+  <table>
+    <tr>
+      <td>To:</td>
+      <td>
+        <input type="text" onblur="onDestinationIdChanged()" id="destination_id"/>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        Message:
+      </td>
+      <td width="500">
+        <textarea style="width:100%" rows="5" id="msg"></textarea>
+      </td>
+    </tr>
+    <tr>
+      <td>        
+      </td>
+      <td>
+        <button onclick="send()">Send</button>
+      </td>
+    </tr>
+  </table>
+
+<br/>
+  <table id="incoming-message" width="80%">
+    <thead>
+      <tr>
+        <th colspan="5">
+          Incoming Message
+        </th>
+      </tr>
+      <tr>
+        <th width="150">From</th>
+        <th width="100">Time</th>
+        <th>Message</th>
+        <th width="100">Status</th>
+        <th width="100">#</th>
+      </tr>
+    </thead>
+    <tbody>
+      
+    </tbody>
+  </table>
+  <p id="output"></p>
+
+  <script src="/jquery.min.js"></script>
+  <script src="/uuid.js"></script>
+  <script>
+    var destination_id = document.getElementById('destination_id').value.trim();
+    
+    var urlParams = new URLSearchParams(window.location.search);
+    id = urlParams.get('id');
+
+    var loc = window.location;
+    var uri = 'ws:';
+
+    if (loc.protocol === 'https:') {
+      uri = 'wss:';
+    }
+    uri += loc.host + '/';
+    uri += 'ws?id=' + id;
+
+    var ws = new WebSocket(uri)
+
+    ws.onopen = function() {
+        //send();
+        console.log('Connected')
+        //getPendingMessage();
+    }
+
+    function getPendingMessage(){
+      var msg = {
+         "message_type": "get-pending"
+        , "msg":{}
+      };
+      ws.send(JSON.stringify(msg));
+    }
+
+    ws.onmessage = function(evt) {
+      //var out = document.getElementById('incoming-message');
+      //console.log(evt.data);
+      //out.innerHTML +=  evt.data + '<br>';
+      var incoming = JSON.parse(evt.data);
+      console.log(incoming);
+      for(var i in incoming){
+        var data = incoming[i];
+        switch(data.message_type){
+          case 'chat':
+            var out = $('#incoming-message tbody');
+            var el = '<tr>';
+                el += '<td>' + data.msg.sender_name + '</td>';
+                el += '<td>' + (new Date(data.msg.client_time * 1000)).toISOString() + '</td>';
+                el += '<td>' + data.msg.content + '</td>';
+                el += '<td><span id="' + data.chat_id + '">Sent to You</span></td>';
+                el += '<td><button onclick="readMessage(\'' + data.chat_id + '\')">Read</button></td>';
+                el += '</tr>';
+            out.append(el);
+            
+            // notif to server message telah diterima
+            notifDelivered(data.chat_id);
+          break;
+          case 'info-readed':
+            $('#' + data.chat_id).html('Readed at <br/>' + (new Date(data.msg.readed_time * 1000).toISOString()));
+          break;
+          case 'info-delivered':
+          $('#' + data.chat_id).html('Delivered at <br/>' + (new Date(data.msg.delivered_time * 1000).toISOString()));
+          break;
+          case 'chat-history':
+            var out = $('#incoming-message tbody');
+            var el = '<tr>';
+              if(data.sender_id==id){  
+                el += '<td>You</td>';
+              }else{
+                el += '<td>' + data.msg.sender_name + '</td>';
+              }
+              el += '<td>' + (new Date(data.msg.client_time * 1000)).toISOString() + '</td>';
+              el += '<td>' + data.msg.content + '</td>';
+              
+                if(data.msg.status==='delivered'){
+                  el += '<td><span id="' + data.chat_id + '"> Delivered at <br/> ' + (new Date(data.msg.delivered_time * 1000).toISOString())
+                }else if(data.msg.status==='readed'){
+                  el += '<td><span id="' + data.chat_id + '"> Readed at <br/> ' + (new Date(data.msg.readed_time * 1000).toISOString())
+                }else{
+                  el += '<td><span id="' + data.chat_id + '">' + data.msg.status;
+                }
+                el += '</span></td>';
+              
+            if(data.sender_id==id){   
+              el += '<td></td>';
+            }else{
+              el += '<td><button onclick="readMessage(\'' + data.chat_id + '\')">Read</button></td>';
+            }
+            el += '</tr>';
+            out.append(el);
+          break;
+          case 'error':
+            alert(data.msg.content);
+            break;
+          default:
+            console.log('Other message type received')
+        }
+      }
+    }
+
+    function send(){
+      if(destination_id==''){
+        alert('please fill To id');
+        return;
+      }
+      var content = document.getElementById('msg').value.trim();
+      if(content==''){
+        alert('please fill Message');
+        return;
+      }
+      var chatId = create_UUID();
+      var out = $('#incoming-message tbody');
+      var el = '<tr>';
+          el += '<td>You</td>';
+          el += '<td>' + (new Date()).toISOString() + '</td>';
+          el += '<td>' + content + '</td>';
+          el += '<td><span id="' + chatId + '">Sent</span></td>';
+          el += '<td></td>';
+          el += '</tr>';
+      out.append(el);
+      var msg = {
+        "chat_id": chatId
+        , "message_type": "chat"
+        , "destination_id" : destination_id
+        , "destination_type": "user"
+        , "msg":{
+            "content": content
+            , "content_type": "text"
+            , "client_time":  (new Date()).getTime() * 0.001
+          }
+      };
+
+      ws.send(JSON.stringify(msg));
+
+      //clear sended Message
+      document.getElementById('msg').value = '';
+    }
+
+    // get private chat dengan list tujuan
+    function getChat(dst_id){
+      $('#incoming-message tbody').html('');
+      var msg = {
+        "destination_id": dst_id
+        , "message_type": "chat-history"
+        , "msg":{limit:10, offset: 0}
+      };
+      ws.send(JSON.stringify(msg));
+    }
+
+    // notif to server message telah dibaca
+    function readMessage(chatId){
+      var msg = {
+        "chat_id": chatId
+        , "message_type": "info-readed"
+        , "msg":{}
+      };
+      ws.send(JSON.stringify(msg));
+    }
+
+    function notifDelivered(chatId){
+      var msg = {
+        "chat_id": chatId
+        , "message_type": "info-delivered"
+        , "msg":{}
+      };
+      ws.send(JSON.stringify(msg));
+    }
+
+    function onDestinationIdChanged(){
+      var new_destination_id = document.getElementById('destination_id').value.trim();
+      if(destination_id!== new_destination_id){
+        destination_id = new_destination_id;
+        getChat(destination_id);
+      }
+    }
+    /*var i =1;
+    setInterval(function() {
+      
+      i++;
+    }, 1);*/
+  </script>
+</body>
+
+</html>

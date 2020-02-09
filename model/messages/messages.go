@@ -1,57 +1,55 @@
-package MessagesModel
+package MessageModel
 
 import (
-	"context"
-	"fmt"
-	"time"
-
-	message "github.com/taufikardiyan28/chat/message"
-	db "github.com/taufikardiyan28/chat/model"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"database/sql/driver"
+	"encoding/json"
 )
 
 type (
-	Message struct {
-		*db.Conn
+	MessageBody map[string]interface{}
+	Chat        struct {
+		ChatId          string      `json:"chat_id" bson:"chat_id" db:"chat_id"`
+		DestinationId   string      `json:"destination_id" bson:"destionation_id" db:"destinationId"`
+		DestinationType string      `json:"destination_type" bson:"destination_type" db:"destinationType"`
+		SenderName      string      `json:"sender_name" bson:"sender_name" db:"senderName"`
+		LastMessage     MessageBody `json:"last_message" bson:"last_message" db:"lastMessage"`
+	}
+
+	MessagePayload struct {
+		ID              int64       `json:"-" db:"id" bson:"id"`
+		MessageType     string      `json:"message_type" bson:"message_type"`
+		OwnerId         string      `json:"-" bson:"owner_id" db:"ownerId"`           //public, room_id, username
+		OwnerType       string      `json:"-" bson:"owner_type" db:"ownerType"`       //group, user, public
+		ChatId          string      `json:"chat_id" bson:"chat_id" db:"chatId"`       //unique request id from client
+		SenderId        string      `json:"sender_id" bson:"sender_id" db:"senderId"` //private, room
+		DestinationId   string      `json:"destination_id" bson:"destination_id" db:"destinationId"`
+		DestinationType string      `json:"destination_type" bson:"destination_type" db:"destinationType"` //group, user, public
+		Msg             MessageBody `json:"msg" bson:"msg" db:"msg"`
+		CreatedAt       string      `json:"created_at" bson:"created_at" db:"createdAt"`
 	}
 )
 
-func (m *Message) Get() (message.MessagePayload, error) {
+/*func (m MessageBody) Value() (driver.Value, error) {
+	return json.Marshal(&m)
+}*/
 
-	pool := m.GetPool()
-	var result message.MessagePayload
-	collection := pool.Database("chat").Collection("messages")
-	msg := message.MessagePayload{
-		ID:           primitive.NewObjectID(),
-		Sender:       map[string]interface{}{"user_id": "asdf"},
-		ReceiverId:   "11111",
-		ReceiverType: "Private",
-		Time:         time.Now(),
-		MessageType:  "chat",
-		ContentType:  "text",
-		Content:      "tes message",
-		Status: message.MessageStatus{
-			Received:     true,
-			ReceivedTime: time.Now(),
-		},
+func (c *MessageBody) Value() (driver.Value, error) {
+	if c != nil {
+		b, err := json.Marshal(c)
+		if err != nil {
+			return nil, err
+		}
+		return string(b), nil
 	}
+	return nil, nil
+}
 
-	insertResult, err := collection.InsertOne(context.Background(), msg)
-	if err != nil {
-		fmt.Println(err)
-		return msg, err
+func (c *MessageBody) Scan(src interface{}) error {
+	var data []byte
+	if b, ok := src.([]byte); ok {
+		data = b
+	} else if s, ok := src.(string); ok {
+		data = []byte(s)
 	}
-
-	fmt.Println("Inserted a single document: ", insertResult.InsertedID)
-	filter := bson.D{{"receiverid", "11111"}}
-
-	err = collection.FindOne(context.Background(), filter).Decode(&result)
-	if err != nil {
-		fmt.Println(err)
-		return result, err
-	}
-
-	fmt.Printf("Found a single document: %+v\n", result)
-	return result, err
+	return json.Unmarshal(data, c)
 }
