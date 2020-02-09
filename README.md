@@ -8,9 +8,12 @@
 git clone https://github.com/taufikardiyan28/chat.git
 ```
 
+Don't forget to create your database with chat.sql file
+
 #### Setup dependencies
 
 ```bash
+#run
 go build
 ```
 
