@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/taufikardiyan28/chat/helper"
 	"github.com/taufikardiyan28/chat/interfaces"
 
 	"github.com/gorilla/websocket"
@@ -16,6 +17,7 @@ import (
 
 type (
 	Connection struct {
+		Config *helper.Configuration
 		*websocket.Conn
 		UserModel.User
 		OnlineUsers     *map[string]*Connection
@@ -52,21 +54,8 @@ func (c *Connection) Start() {
 	// get all pending message
 	go c.onGetPendingMessage()
 
-	/*msg := MessageModel.MessagePayload{
-		DestinationId:   "085246497498",
-		DestinationType: "user",
-		Msg:             map[string]interface{}{"status": "tes"},
-	}
-	c.sendToPrivate(msg)
-
-	msg = MessageModel.MessagePayload{
-		DestinationId:   "085246497497",
-		DestinationType: "user",
-		Msg:             map[string]interface{}{"status": "halloooooo"},
-	}
-
-	c.sendToPrivate(msg)
-	*/
+	//update online status
+	go c.OnUserOnline()
 
 	for {
 		msgPayload := MessageModel.MessagePayload{}
@@ -74,6 +63,7 @@ func (c *Connection) Start() {
 		err := c.ReadJSON(&msgPayload)
 		if err != nil {
 			if strings.Contains(err.Error(), "closed network connection") || strings.Contains(err.Error(), "websocket: close") {
+				c.OnUserOffline()
 				return
 			}
 			fmt.Println("Invalid Message ", err)
@@ -192,8 +182,9 @@ func (c *Connection) onGetPendingMessage() {
 	res, err := c.MessageRepo.GetPendingMessage(c.ID)
 
 	if err == nil {
-		for i, elMsg := range res {
-			fmt.Println(elMsg)
+		for i, pendingMsg := range res {
+			// send push notification
+			go c.SendPushNotification(pendingMsg)
 			res[i].MessageType = "chat"
 		}
 
@@ -257,6 +248,26 @@ func (c *Connection) onGetChatList(msg MessageModel.MessagePayload) {
 	c.GetmessageChannel() <- res
 }
 
+func (c *Connection) OnUserOnline() {
+	var vals []interface{}
+	vals = append(vals, time.Now())
+	vals = append(vals, "online")
+	var cols []string
+	cols = append(cols, "lastSeen")
+	cols = append(cols, "status")
+	c.UserRepo.UpdateUser(c.ID, cols, vals...)
+}
+
+func (c *Connection) OnUserOffline() {
+	var vals []interface{}
+	vals = append(vals, time.Now())
+	vals = append(vals, "offline")
+	var cols []string
+	cols = append(cols, "lastSeen")
+	cols = append(cols, "status")
+	c.UserRepo.UpdateUser(c.ID, cols, vals...)
+}
+
 /******##END CHAT EVENTS******/
 
 /******
@@ -290,7 +301,8 @@ func (c *Connection) sendToPrivate(msg MessageModel.MessagePayload) {
 	dstClient, exists := (*c.OnlineUsers)[msg.DestinationId]
 	if !exists {
 		// send push notif
-		//c.GetmessageChannel() <- h.GenerateErrorResponse(c.ID, "private", fmt.Sprintf("User %s is offline", msg.DestinationId))
+		go c.SendPushNotification(msg)
+
 		msg.OwnerId = msg.DestinationId
 		go c.handleInsertMessage(msg)
 	} else {

@@ -7,3 +7,5 @@ database:
   db_type: "mysql"
 host: "localhost"
 port: 5101
+push_notif:
+  url: "http://localhost:5050/api/push-notif"

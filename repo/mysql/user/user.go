@@ -1,6 +1,8 @@
 package UserRepo
 
 import (
+	"strings"
+
 	interfaces "github.com/taufikardiyan28/chat/interfaces"
 	UserModel "github.com/taufikardiyan28/chat/model/user"
 )
@@ -18,10 +20,13 @@ func (c *Repo) GetUserInfo(id string) (UserModel.User, error) {
 
 func (c *Repo) UpdateUser(id string, cols []string, val ...interface{}) error {
 	strSQL := `UPDATE users SET `
+	var colNames []string
 	for _, col := range cols {
-		strSQL += "`" + col + "` = ?"
+		colNames = append(colNames, " `"+col+"` = ?")
 	}
-	strSQL += "WHERE `id` = ?"
-	_, err := c.Pool.Exec(strSQL, id, val)
+	strSQL += strings.Join(colNames, ",") + " WHERE `id` = ?"
+
+	val = append(val, id)
+	_, err := c.Pool.Exec(strSQL, val...)
 	return err
 }

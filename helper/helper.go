@@ -15,8 +15,11 @@ type (
 			DbName   string `yaml:"db_name"`
 			DbType   string `yaml:"db_type"`
 		} `yaml:"database"`
-		Host string `yaml:"host"`
-		Port int    `yaml:"port"`
+		Host      string `yaml:"host"`
+		Port      int    `yaml:"port"`
+		PushNotif struct {
+			Url string `yaml:"url"`
+		} `yaml:"push_notif"`
 	}
 
 	Sorting struct {

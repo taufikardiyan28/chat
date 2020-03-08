@@ -97,6 +97,7 @@ func (a *Server) handleWSConnections(c echo.Context) error {
 	defer ws.Close()
 
 	clientCon := &client.Connection{
+		Config:      a.Config,
 		Conn:        ws,
 		User:        c_info,
 		OnlineUsers: &a.Clients,
