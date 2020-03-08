@@ -7,8 +7,8 @@ import (
 	"github.com/taufikardiyan28/chat/interfaces"
 )
 
-func NewConnection(config *helper.Configuration) (interfaces.Database, error) {
-	var iDB interfaces.Database
+func NewConnection(config *helper.Configuration) (interfaces.IDatabase, error) {
+	var iDB interfaces.IDatabase
 	/*if config.Database.DbType == "mongodb" {
 		iDB = &MongoDB.Conn{
 			Config: config,

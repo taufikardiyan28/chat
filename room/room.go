@@ -14,7 +14,7 @@ type (
 		CreatedBy string
 		CreatedAt time.Time
 		Members   RoomMember
-		Clients   map[string]interfaces.Client
+		Clients   map[string]interfaces.IClient
 	}
 	RoomMember struct {
 		ID   string
@@ -29,7 +29,7 @@ func NewRoom(room_id string, name string) *ChatRoom {
 		ID:        room_id,
 		Name:      name,
 		CreatedAt: time.Now(),
-		Clients:   make(map[string]interfaces.Client),
+		Clients:   make(map[string]interfaces.IClient),
 	}
 
 	(*Rooms)[room_id] = chatRoom
@@ -52,7 +52,7 @@ func GetRoomByName(name string) *ChatRoom {
 	return nil
 }
 
-func (c *ChatRoom) Join(client_id string, client interfaces.Client) {
+func (c *ChatRoom) Join(client_id string, client interfaces.IClient) {
 	c.Clients[client_id] = client
 }
 

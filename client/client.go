@@ -21,7 +21,9 @@ type (
 		OnlineUsers     *map[string]*Connection
 		messageChannel  chan interface{}
 		lastSeenChannel chan UserModel.User
-		DB              interfaces.Database
+		Pool            interfaces.IDatabase
+		UserRepo        interfaces.IUserRepo
+		MessageRepo     interfaces.IMessageRepo
 	}
 )
 
@@ -119,7 +121,7 @@ func (c *Connection) handleClientMessage() {
 func (c *Connection) handleInsertMessage(msg MessageModel.MessagePayload) {
 	fmt.Println("OwnerID", c.ID)
 	msg.OwnerId = c.ID
-	err := c.DB.InsertMessage(msg)
+	err := c.MessageRepo.InsertMessage(msg)
 	if err != nil {
 		fmt.Println("ERROR INSERT MESSAGE ", err)
 	}
@@ -131,7 +133,7 @@ func (c *Connection) handleInsertMessage(msg MessageModel.MessagePayload) {
  ##CHAT EVENTS
 ******/
 func (c *Connection) onMessageDelivered(msg MessageModel.MessagePayload) {
-	res, err := c.DB.GetMessage(msg)
+	res, err := c.MessageRepo.GetMessage(msg)
 	if err != nil {
 		fmt.Println("ERROR GET MESSAGE ", err)
 		return
@@ -140,7 +142,7 @@ func (c *Connection) onMessageDelivered(msg MessageModel.MessagePayload) {
 		//if el.OwnerId == c.ID {
 		elMsg.Msg["delivered_time"] = time.Now().Unix()
 		elMsg.Msg["status"] = "delivered"
-		err := c.DB.UpdateMessage(elMsg) // need error handling
+		err := c.MessageRepo.UpdateMessage(elMsg) // need error handling
 		if err != nil {
 			fmt.Println("ERROR UPDATE DELIVERED ", err)
 			continue
@@ -157,7 +159,7 @@ func (c *Connection) onMessageDelivered(msg MessageModel.MessagePayload) {
 }
 
 func (c *Connection) onMessageReaded(msg MessageModel.MessagePayload) {
-	res, err := c.DB.GetMessage(msg)
+	res, err := c.MessageRepo.GetMessage(msg)
 	if err != nil {
 		fmt.Println("ERROR GET MESSAGE ", err)
 		return
@@ -166,7 +168,7 @@ func (c *Connection) onMessageReaded(msg MessageModel.MessagePayload) {
 		//if el.OwnerId == el.SenderId {
 		elMsg.Msg["readed_time"] = time.Now().Unix()
 		elMsg.Msg["status"] = "readed"
-		err := c.DB.UpdateMessage(elMsg) // need error handling
+		err := c.MessageRepo.UpdateMessage(elMsg) // need error handling
 		if err != nil {
 			fmt.Println("ERROR UPDATE READED ", err)
 			continue
@@ -182,7 +184,7 @@ func (c *Connection) onMessageReaded(msg MessageModel.MessagePayload) {
 }
 
 func (c *Connection) onGetPendingMessage() {
-	res, err := c.DB.GetPendingMessage(c.ID)
+	res, err := c.MessageRepo.GetPendingMessage(c.ID)
 
 	if err == nil {
 		for i, elMsg := range res {
@@ -209,7 +211,7 @@ func (c *Connection) onGetHistory(msg MessageModel.MessagePayload) {
 		return
 	}
 
-	res, err := c.DB.GetChatHistory(c.ID, msg.DestinationId, int(limit), int(offset))
+	res, err := c.MessageRepo.GetChatHistory(c.ID, msg.DestinationId, int(limit), int(offset))
 	if err != nil {
 		msg := h.GenerateErrorResponse(msg.OwnerId, "user", "Error get chat history")
 		resp := []MessageModel.MessagePayload{msg}

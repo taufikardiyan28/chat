@@ -48,7 +48,7 @@ func (c *Conn) GetUserInfo(id string) (UserModel.User, error) {
 	return UserModel.User{}, nil
 }
 
-func (c *Conn) UpdateUser(id string) error {
+func (c *Conn) UpdateUser(id string, cols []string, val ...interface{}) error {
 	return nil
 }
 

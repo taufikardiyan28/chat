@@ -13,6 +13,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	client "github.com/taufikardiyan28/chat/client"
 	"github.com/taufikardiyan28/chat/helper"
+	Repo "github.com/taufikardiyan28/chat/repo"
 	room "github.com/taufikardiyan28/chat/room"
 )
 
@@ -24,9 +25,11 @@ var upgrader = websocket.Upgrader{
 
 type (
 	Server struct {
-		Config  *helper.Configuration
-		Clients map[string]*client.Connection
-		DB      interfaces.Database
+		Config      *helper.Configuration
+		Clients     map[string]*client.Connection
+		DB          interfaces.IDatabase
+		UserRepo    interfaces.IUserRepo
+		MessageRepo interfaces.IMessageRepo
 	}
 )
 
@@ -61,6 +64,9 @@ func (a *Server) Start() {
 
 	a.DB = dbcon
 
+	a.UserRepo = Repo.GetUserRepo(a.DB)
+	a.MessageRepo = Repo.GetMessageRepo(a.DB)
+
 	e.HideBanner = true
 
 	e.Static("/", "public")
@@ -77,7 +83,7 @@ func (a *Server) handleWSConnections(c echo.Context) error {
 
 	a.closePreviousConnection(id)
 
-	c_info, err := a.DB.GetUserInfo(id)
+	c_info, err := a.UserRepo.GetUserInfo(id)
 	if err != nil {
 		fmt.Println(err)
 		return c.JSON(401, map[string]interface{}{"status": "error", "msg": err})
@@ -94,7 +100,9 @@ func (a *Server) handleWSConnections(c echo.Context) error {
 		Conn:        ws,
 		User:        c_info,
 		OnlineUsers: &a.Clients,
-		DB:          a.DB,
+		Pool:        a.DB,
+		UserRepo:    a.UserRepo,
+		MessageRepo: a.MessageRepo,
 	}
 	a.Clients[id] = clientCon
 	clientCon.Start()

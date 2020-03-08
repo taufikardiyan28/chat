@@ -1,6 +1,7 @@
 package MySqlDB
 
 import (
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -40,6 +41,28 @@ func (c *Conn) Ping() error {
 	return c.Pool.Ping()
 }
 
-func (c *Conn) GetPool() interface{} {
+func (c *Conn) GetPool() *sqlx.DB {
 	return c.Pool
+}
+
+func (c *Conn) Exec(query string, args ...interface{}) (interface{}, error) {
+	var res sql.Result
+	var err error
+	res, err = c.Pool.Exec(query, args...)
+
+	return res, err
+}
+
+func (c *Conn) Select(dest interface{}, query string, args ...interface{}) error {
+	var err error
+	err = c.Pool.Select(dest, query, args...)
+
+	return err
+}
+
+func (c *Conn) Get(dest interface{}, query string, args ...interface{}) error {
+	var err error
+	err = c.Pool.Get(dest, query, args...)
+
+	return err
 }
