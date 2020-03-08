@@ -29,52 +29,70 @@
 </head>
 
 <body>
-
-  <table>
-    <tr>
-      <td>To:</td>
-      <td>
-        <input type="text" onblur="onDestinationIdChanged()" id="destination_id"/>
-      </td>
-    </tr>
-    <tr>
-      <td>
-        Message:
-      </td>
-      <td width="500">
-        <textarea style="width:100%" rows="5" id="msg"></textarea>
-      </td>
-    </tr>
-    <tr>
-      <td>        
-      </td>
-      <td>
-        <button onclick="send()">Send</button>
-      </td>
-    </tr>
-  </table>
-
-<br/>
-  <table id="incoming-message" width="80%">
-    <thead>
-      <tr>
-        <th colspan="5">
-          Incoming Message
-        </th>
-      </tr>
-      <tr>
-        <th width="150">From</th>
-        <th width="100">Time</th>
-        <th>Message</th>
-        <th width="100">Status</th>
-        <th width="100">#</th>
-      </tr>
-    </thead>
-    <tbody>
-      
-    </tbody>
-  </table>
-  <p id="output"></p>
+  <div style="width:100%; display:flex; flex-direction: row;">
+    <div style="width:15%;margin-right:20px">
+      Chat List
+      <table style="width: 100%;" id="chat-list">
+        <tr>
+          <td>
+            <span>Topik</span> (<span>081272717</span>)
+            <p>Last Message</p>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <span>Topik</span>
+            <p>Last Message</p>
+          </td>
+        </tr>
+      </table>
+    </div>
+    <div style="width:80%;">
+      <table>
+        <tr>
+          <td>To:</td>
+          <td>
+            <input type="text" onblur="onDestinationIdChanged()" id="destination_id"/>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            Message:
+          </td>
+          <td width="500">
+            <textarea style="width:100%" rows="5" id="msg"></textarea>
+          </td>
+        </tr>
+        <tr>
+          <td>        
+          </td>
+          <td>
+            <button onclick="send()">Send</button>
+          </td>
+        </tr>
+      </table>
+  <br/>
+    <table id="incoming-message" width="80%">
+      <thead>
+        <tr>
+          <th colspan="5">
+            Incoming Message
+          </th>
+        </tr>
+        <tr>
+          <th width="150">From</th>
+          <th width="100">Time</th>
+          <th>Message</th>
+          <th width="100">Status</th>
+          <th width="100">#</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+      </tbody>
+    </table>
+    </div>
+  </div>
 
   <script src="/jquery.min.js"></script>
   <script src="/uuid.js"></script>
@@ -99,6 +117,7 @@
         //send();
         console.log('Connected')
         //getPendingMessage();
+        getChatList();
     }
 
     function getPendingMessage(){
@@ -166,10 +185,20 @@
             el += '</tr>';
             out.append(el);
           break;
+          case 'chat-list':
+            var el = '<tr>';
+                el+= '<td onclick=changeDestination(this)>'
+                el+= '<span>' + data.interlocutors_name + '</span> (<span class="interlocutors_id">' + data.interlocutors_id + '</span>)';
+                el+= '<p>' + data.last_message.content + '</p>'
+                el+= '</td>'
+                el+= '</tr>'
+            $('#chat-list').append(el);
+            break;
           case 'error':
             alert(data.msg.content);
             break;
           default:
+            console.log(data);
             console.log('Other message type received')
         }
       }
@@ -213,6 +242,16 @@
       document.getElementById('msg').value = '';
     }
 
+    // get chat list
+    function getChatList(){
+      $('#chat-list').html('');
+      var msg = {
+        "message_type": "chat-list"
+        , "msg":{limit:10, offset: 0}
+      };
+      ws.send(JSON.stringify(msg));
+    }
+
     // get private chat dengan list tujuan
     function getChat(dst_id){
       $('#incoming-message tbody').html('');
@@ -249,6 +288,12 @@
         destination_id = new_destination_id;
         getChat(destination_id);
       }
+    }
+
+    function changeDestination(el){
+      var dst_id = $(el).find('.interlocutors_id').html();
+      document.getElementById('destination_id').value = dst_id;
+      onDestinationIdChanged();
     }
     /*var i =1;
     setInterval(function() {

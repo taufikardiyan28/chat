@@ -119,8 +119,13 @@ func (c *Connection) handleClientMessage() {
 }
 
 func (c *Connection) handleInsertMessage(msg MessageModel.MessagePayload) {
-	fmt.Println("OwnerID", c.ID)
-	msg.OwnerId = c.ID
+	//msg.OwnerId = c.ID
+	if msg.SenderId == msg.OwnerId {
+		msg.InterlocutorsId = msg.DestinationId
+	} else {
+		msg.InterlocutorsId = msg.SenderId
+	}
+
 	err := c.MessageRepo.InsertMessage(msg)
 	if err != nil {
 		fmt.Println("ERROR INSERT MESSAGE ", err)
@@ -225,6 +230,33 @@ func (c *Connection) onGetHistory(msg MessageModel.MessagePayload) {
 	c.GetmessageChannel() <- res
 }
 
+func (c *Connection) onGetChatList(msg MessageModel.MessagePayload) {
+	limit, limitValid := msg.Msg["limit"].(float64)
+	offset, offsetValid := msg.Msg["offset"].(float64)
+
+	if !limitValid || !offsetValid {
+		msg := h.GenerateErrorResponse(msg.OwnerId, "user", "invalid limit or offset value")
+		resp := []MessageModel.MessagePayload{msg}
+		c.GetmessageChannel() <- resp
+		return
+	}
+
+	res, err := c.MessageRepo.GetChatList(c.ID, int(limit), int(offset))
+	if err != nil {
+		msg := h.GenerateErrorResponse(msg.OwnerId, "user", "Error get chat history")
+		fmt.Println("ERROR GET CHAT LIST", err)
+		resp := []MessageModel.MessagePayload{msg}
+		c.GetmessageChannel() <- resp
+		return
+	}
+
+	for i, _ := range res {
+		res[i].MessageType = "chat-list"
+	}
+
+	c.GetmessageChannel() <- res
+}
+
 /******##END CHAT EVENTS******/
 
 /******
@@ -247,6 +279,7 @@ func (c *Connection) Send(msg MessageModel.MessagePayload) {
 		msg.Msg["server_time"] = time.Now().Unix()
 		msg.Msg["sender_name"] = c.Name
 		// insert to owner message
+		msg.OwnerId = c.ID
 		go c.handleInsertMessage(msg)
 
 		c.sendToPrivate(msg)
@@ -258,7 +291,10 @@ func (c *Connection) sendToPrivate(msg MessageModel.MessagePayload) {
 	if !exists {
 		// send push notif
 		//c.GetmessageChannel() <- h.GenerateErrorResponse(c.ID, "private", fmt.Sprintf("User %s is offline", msg.DestinationId))
+		msg.OwnerId = msg.DestinationId
+		go c.handleInsertMessage(msg)
 	} else {
+		msg.OwnerId = dstClient.ID
 		go dstClient.handleInsertMessage(msg)
 
 		// make private to array
@@ -288,6 +324,8 @@ func (c *Connection) onCMD(msg MessageModel.MessagePayload) {
 		break
 	case "chat-history":
 		go c.onGetHistory(msg)
+	case "chat-list":
+		go c.onGetChatList(msg)
 	}
 }
 
