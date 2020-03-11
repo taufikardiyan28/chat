@@ -53,6 +53,7 @@
           <td>To:</td>
           <td>
             <input type="text" onblur="onDestinationIdChanged()" id="destination_id"/>
+            <button onclick="getUserStatus()">Get Status</button>
           </td>
         </tr>
         <tr>
@@ -194,6 +195,9 @@
                 el+= '</tr>'
             $('#chat-list').append(el);
             break;
+          case 'user-status':
+            console.log('user-status', data);
+            break;
           case 'error':
             alert(data.msg.content);
             break;
@@ -295,6 +299,16 @@
       document.getElementById('destination_id').value = dst_id;
       onDestinationIdChanged();
     }
+
+    function getUserStatus(){
+      var msg = {
+        "message_type": "user-status"
+        , "destination_id": document.getElementById('destination_id').value.trim()
+        , "msg":{}
+      };
+      ws.send(JSON.stringify(msg));
+    }
+
     /*var i =1;
     setInterval(function() {
       

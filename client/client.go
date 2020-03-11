@@ -268,6 +268,23 @@ func (c *Connection) OnUserOffline() {
 	c.UserRepo.UpdateUser(c.ID, cols, vals...)
 }
 
+func (c *Connection) onGetUserStatus(msg MessageModel.MessagePayload) {
+	res, err := c.UserRepo.GetUserInfo(msg.DestinationId)
+	if err != nil {
+		fmt.Println("ERROR GET MESSAGE ", err)
+		return
+	}
+	msg.Msg = make(map[string]interface{})
+	msg.Msg["id"] = msg.DestinationId
+	msg.Msg["name"] = res.Name
+	msg.Msg["last_seen"] = res.LastSeen
+	msg.Msg["status"] = res.Status
+
+	resp := []MessageModel.MessagePayload{msg}
+
+	c.GetmessageChannel() <- resp
+}
+
 /******##END CHAT EVENTS******/
 
 /******
@@ -338,6 +355,9 @@ func (c *Connection) onCMD(msg MessageModel.MessagePayload) {
 		go c.onGetHistory(msg)
 	case "chat-list":
 		go c.onGetChatList(msg)
+	case "user-status":
+		go c.onGetUserStatus(msg)
+		break
 	}
 }
 
