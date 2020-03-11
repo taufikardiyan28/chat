@@ -50,17 +50,30 @@
     <div style="width:80%;">
       <table>
         <tr>
+          <td colspan="2">
+            Type User ID to start chat
+          </td>
+          <td>Status</td>
+          <td>Last Seen</td>
+        </tr>
+        <tr>
           <td>To:</td>
           <td>
             <input type="text" onblur="onDestinationIdChanged()" id="destination_id"/>
             <button onclick="getUserStatus()">Get Status</button>
+          </td>
+          <td>
+            <span id="user-status"></span>
+          </td>
+          <td>
+            <span id="user-lastseen"></span>
           </td>
         </tr>
         <tr>
           <td>
             Message:
           </td>
-          <td width="500">
+          <td width="500" colspan="3">
             <textarea style="width:100%" rows="5" id="msg"></textarea>
           </td>
         </tr>
@@ -138,6 +151,9 @@
       for(var i in incoming){
         var data = incoming[i];
         switch(data.message_type){
+          case 'ping':
+            console.log(data);
+            break;
           case 'chat':
             var out = $('#incoming-message tbody');
             var el = '<tr>';
@@ -197,6 +213,8 @@
             break;
           case 'user-status':
             console.log('user-status', data);
+            $('#user-status').html(data.msg.status);
+            $('#user-lastseen').html(data.msg.last_seen);
             break;
           case 'error':
             alert(data.msg.content);
@@ -301,6 +319,8 @@
     }
 
     function getUserStatus(){
+      $('#user-status').html('');
+      $('#user-lastseen').html('');
       var msg = {
         "message_type": "user-status"
         , "destination_id": document.getElementById('destination_id').value.trim()

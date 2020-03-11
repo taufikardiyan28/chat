@@ -57,6 +57,8 @@ func (c *Connection) Start() {
 	//update online status
 	go c.OnUserOnline()
 
+	//go c.Ping()
+
 	for {
 		msgPayload := MessageModel.MessagePayload{}
 
@@ -89,6 +91,16 @@ func (c *Connection) Start() {
  ##CHAT GOROUTINE
 ******/
 // handle for received message
+func (c *Connection) Ping() {
+	msg := []MessageModel.MessagePayload{MessageModel.MessagePayload{
+		MessageType: "ping",
+	}}
+	for {
+		time.Sleep(2 * time.Second)
+		c.GetmessageChannel() <- msg
+	}
+}
+
 func (c *Connection) handleClientMessage() {
 	for {
 		msg := <-c.messageChannel
