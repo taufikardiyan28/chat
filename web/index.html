@@ -82,6 +82,7 @@
           </td>
           <td colspan="3">
             <button onclick="send()">Send</button>
+            <!--<button onclick="sendTest()">SendTest</button>-->
           </td>
         </tr>
       </table>
@@ -223,6 +224,26 @@
             console.log(data);
             console.log('Other message type received')
         }
+      }
+    }
+
+    function sendTest(){
+      var content = document.getElementById('msg').value.trim();
+      for(var i=0;i<=1000;i++){
+        var chatId = create_UUID();      
+        var msg = {
+          "chat_id": chatId
+          , "message_type": "chat"
+          , "destination_id" : destination_id
+          , "destination_type": "user"
+          , "msg":{
+              "content": content
+              , "content_type": "text"
+              , "client_time":  (new Date()).getTime() * 0.001
+            }
+        };
+
+        ws.send(JSON.stringify(msg));
       }
     }
 

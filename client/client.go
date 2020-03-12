@@ -57,7 +57,7 @@ func (c *Connection) Start() {
 	//update online status
 	go c.OnUserOnline()
 
-	//go c.Ping()
+	go c.Ping()
 
 	for {
 		msgPayload := MessageModel.MessagePayload{}
@@ -96,7 +96,7 @@ func (c *Connection) Ping() {
 		MessageType: "ping",
 	}}
 	for {
-		time.Sleep(2 * time.Second)
+		time.Sleep(10 * time.Second)
 		c.GetmessageChannel() <- msg
 	}
 }
@@ -109,7 +109,7 @@ func (c *Connection) handleClientMessage() {
 		if err != nil {
 			if strings.Contains(err.Error(), "closed network connection") || strings.Contains(err.Error(), "websocket: close") {
 				c.Close()
-				delete(*c.OnlineUsers, c.ID)
+				//delete(*c.OnlineUsers, c.ID)
 				return
 			}
 			fmt.Println(err)
@@ -194,9 +194,9 @@ func (c *Connection) onGetPendingMessage() {
 	res, err := c.MessageRepo.GetPendingMessage(c.ID)
 
 	if err == nil {
-		for i, _ := range res {
+		for i, pendingMsg := range res {
 			// send push notification
-			// go c.SendPushNotification(pendingMsg)
+			go c.SendPushNotification(pendingMsg)
 			res[i].MessageType = "chat"
 		}
 
@@ -330,7 +330,7 @@ func (c *Connection) sendToPrivate(msg MessageModel.MessagePayload) {
 	dstClient, exists := (*c.OnlineUsers)[msg.DestinationId]
 	if !exists {
 		// send push notif
-		// go c.SendPushNotification(msg)
+		go c.SendPushNotification(msg)
 
 		msg.OwnerId = msg.DestinationId
 		go c.handleInsertMessage(msg)

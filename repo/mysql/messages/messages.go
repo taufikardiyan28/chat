@@ -20,16 +20,16 @@ func (c *Repo) GetChatList(userId string, limit, offset int) ([]MessageModel.Cha
 				JOIN
 				(
 				SELECT MAX(id) AS id
-				FROM messages
+				FROM messages WHERE ownerId = ?
 				GROUP BY interlocutorsId
 				) b ON a.id = b.id
 				LEFT JOIN users c ON a.interlocutorsId = c.id
-				WHERE a.ownerId= ?
+				WHERE a.ownerId = ?
 				ORDER BY a.id DESC
 				LIMIT ?, ?`
 
 	var res []MessageModel.Chat
-	err := c.Pool.Select(&res, strSQL, userId, offset, limit)
+	err := c.Pool.Select(&res, strSQL, userId, userId, offset, limit)
 	return res, err
 }
 
