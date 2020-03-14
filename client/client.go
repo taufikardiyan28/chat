@@ -3,6 +3,7 @@ package client
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/taufikardiyan28/chat/helper"
@@ -20,7 +21,7 @@ type (
 		Config *helper.Configuration
 		*websocket.Conn
 		UserModel.User
-		OnlineUsers     *map[string]*Connection
+		OnlineUsers     *sync.Map //*map[string]*Connection
 		messageChannel  chan interface{}
 		lastSeenChannel chan UserModel.User
 		Pool            interfaces.IDatabase
@@ -44,7 +45,8 @@ func (c *Connection) Start() {
 			log.Println("Error", fmt.Sprintf("%v", r))
 		}*/
 		c.Close()
-		delete(*c.OnlineUsers, c.ID)
+		c.OnlineUsers.Delete(c.ID)
+		//delete(*c.OnlineUsers, c.ID)
 	}()
 
 	c.messageChannel = make(chan interface{})
@@ -156,9 +158,10 @@ func (c *Connection) onMessageDelivered(msg MessageModel.MessagePayload) {
 		}
 
 		elMsg.MessageType = "info-delivered"
-		dstClient, exists := (*c.OnlineUsers)[elMsg.SenderId]
+		iDstClient, exists := (*c.OnlineUsers).Load(elMsg.SenderId) //(*c.OnlineUsers)[elMsg.SenderId]
 		resp := []MessageModel.MessagePayload{elMsg}
 		if exists {
+			dstClient := iDstClient.(*Connection)
 			dstClient.GetmessageChannel() <- resp
 		}
 		//}
@@ -182,9 +185,10 @@ func (c *Connection) onMessageReaded(msg MessageModel.MessagePayload) {
 		}
 		//}
 		elMsg.MessageType = "info-readed"
-		dstClient, exists := (*c.OnlineUsers)[elMsg.SenderId]
+		iDstClient, exists := (*c.OnlineUsers).Load(elMsg.SenderId) //(*c.OnlineUsers)[elMsg.SenderId]
 		resp := []MessageModel.MessagePayload{elMsg}
 		if exists {
+			dstClient := iDstClient.(*Connection)
 			dstClient.GetmessageChannel() <- resp
 		}
 	}
@@ -327,7 +331,7 @@ func (c *Connection) Send(msg MessageModel.MessagePayload) {
 }
 
 func (c *Connection) sendToPrivate(msg MessageModel.MessagePayload) {
-	dstClient, exists := (*c.OnlineUsers)[msg.DestinationId]
+	iDstClient, exists := (*c.OnlineUsers).Load(msg.DestinationId) //(*c.OnlineUsers)[msg.DestinationId]
 	if !exists {
 		// send push notif
 		go c.SendPushNotification(msg)
@@ -335,6 +339,7 @@ func (c *Connection) sendToPrivate(msg MessageModel.MessagePayload) {
 		msg.OwnerId = msg.DestinationId
 		go c.handleInsertMessage(msg)
 	} else {
+		dstClient := iDstClient.(*Connection)
 		msg.OwnerId = dstClient.ID
 		go dstClient.handleInsertMessage(msg)
 

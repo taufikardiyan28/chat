@@ -128,11 +128,53 @@
 
     var ws = new WebSocket(uri)
 
-    ws.onopen = function() {
+    var timeout;
+
+    function onOpen() {
         //send();
         console.log('Connected')
+        console.log(ws);
         //getPendingMessage();
         getChatList();
+        if(timeout){
+          clearTimeout(timeout);
+        }
+    }
+
+    function onClosed(e){
+      console.log('closed', e);
+      startReconnect();
+    }
+
+
+    function initWSEvents(){
+      ws.onopen = onOpen;
+      ws.onclose = onClosed;
+      ws.onmessage = onMessage;
+    }
+    
+    initWSEvents();
+
+    function startReconnect(){
+      timeout = setTimeout(function(){
+          console.log('reconnecting')
+            try{
+              ws = new WebSocket(uri)
+              console.log(ws);
+              if(ws.readyState == 1 || ws.readyState == 0){
+                initWSEvents();
+              }else{
+                startReconnect();
+              }
+            }catch(er){
+              console.log('reconnecting error', er);
+            }
+        }, 5000);
+    }
+
+    ws.onerror = function(e){
+      console.log('error', e);
+      startReconnect();
     }
 
     function getPendingMessage(){
@@ -143,7 +185,7 @@
       ws.send(JSON.stringify(msg));
     }
 
-    ws.onmessage = function(evt) {
+    function onMessage(evt) {
       //var out = document.getElementById('incoming-message');
       //console.log(evt.data);
       //out.innerHTML +=  evt.data + '<br>';

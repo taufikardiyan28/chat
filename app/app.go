@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/taufikardiyan28/chat/db"
 	"github.com/taufikardiyan28/chat/interfaces"
@@ -26,7 +27,7 @@ var upgrader = websocket.Upgrader{
 type (
 	Server struct {
 		Config      *helper.Configuration
-		Clients     map[string]*client.Connection
+		Clients     sync.Map //map[string]*client.Connection
 		DB          interfaces.IDatabase
 		UserRepo    interfaces.IUserRepo
 		MessageRepo interfaces.IMessageRepo
@@ -46,7 +47,7 @@ func (a *Server) Start() {
 		AllowMethods: []string{echo.GET, echo.HEAD, echo.PUT, echo.PATCH, echo.POST, echo.DELETE},
 	}))
 
-	a.Clients = make(map[string]*client.Connection)
+	//a.Clients = make(map[string]*client.Connection)
 
 	// initiate room list
 	r := make(map[string]*room.ChatRoom)
@@ -105,18 +106,26 @@ func (a *Server) handleWSConnections(c echo.Context) error {
 		UserRepo:    a.UserRepo,
 		MessageRepo: a.MessageRepo,
 	}
-	a.Clients[id] = clientCon
+	//a.Clients[id] = clientCon
+	a.Clients.Store(id, clientCon)
 	clientCon.Start()
 	return err
 }
 
 func (a *Server) closePreviousConnection(id string) bool {
-	for client_id := range a.Clients {
+	/*for client_id := range a.Clients {
 		if client_id == id {
 			a.Clients[client_id].Close()
 			delete(a.Clients, client_id)
 			return true
 		}
+	}*/
+	iClient, exists := a.Clients.Load(id)
+	if exists {
+		fmt.Println("ada")
+		client := iClient.(*client.Connection)
+		client.Close()
+		a.Clients.Delete(id)
 	}
-	return false
+	return exists
 }
