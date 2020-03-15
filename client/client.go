@@ -198,9 +198,9 @@ func (c *Connection) onGetPendingMessage() {
 	res, err := c.MessageRepo.GetPendingMessage(c.ID)
 
 	if err == nil {
-		for i, pendingMsg := range res {
+		for i, _ := range res {
 			// send push notification
-			go c.SendPushNotification(pendingMsg)
+			//go c.SendPushNotification(pendingMsg)
 			res[i].MessageType = "chat"
 		}
 
