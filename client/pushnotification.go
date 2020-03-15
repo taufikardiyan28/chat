@@ -12,6 +12,7 @@ import (
 type M map[string]interface{}
 
 func (c *Connection) SendPushNotification(msg MessageModel.MessagePayload) error {
+	fmt.Println("send push notif")
 	url := c.Config.PushNotif.Url
 
 	payload, err := json.Marshal(msg)

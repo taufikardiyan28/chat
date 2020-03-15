@@ -2,7 +2,6 @@ package client
 
 import (
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -18,6 +17,7 @@ import (
 
 type (
 	Connection struct {
+		UUID   string
 		Config *helper.Configuration
 		*websocket.Conn
 		UserModel.User
@@ -34,19 +34,20 @@ func (c *Connection) GetID() string {
 	return c.ID
 }
 
-func (c *Connection) GetmessageChannel() chan interface{} {
-	return c.messageChannel
+func (c *Connection) GetmessageChannel() (chan interface{}, bool) {
+	return c.messageChannel, c.IsChanClosed(c.messageChannel)
 }
 
 // start listen for client incoming messages
 func (c *Connection) Start() {
 	defer func() {
-		/*if r := recover(); r != nil {
-			log.Println("Error", fmt.Sprintf("%v", r))
-		}*/
 		c.Close()
-		c.OnlineUsers.Delete(c.ID)
-		//delete(*c.OnlineUsers, c.ID)
+		//c.OnlineUsers.Delete(c.ID)
+		c.RemoveConnection()
+		if !c.IsChanClosed(c.messageChannel) {
+			close(c.messageChannel)
+		}
+		fmt.Println("Closing", c.ID)
 	}()
 
 	c.messageChannel = make(chan interface{})
@@ -60,18 +61,15 @@ func (c *Connection) Start() {
 	go c.OnUserOnline()
 
 	go c.Ping()
-
+	//c.SetReadDeadline(time.Now().Add(time.Second * 5))
 	for {
 		msgPayload := MessageModel.MessagePayload{}
 
 		err := c.ReadJSON(&msgPayload)
 		if err != nil {
-			if strings.Contains(err.Error(), "closed network connection") || strings.Contains(err.Error(), "websocket: close") {
-				c.OnUserOffline()
-				return
-			}
+			c.OnUserOffline()
 			fmt.Println("Invalid Message ", err)
-			continue
+			break
 		}
 
 		//Send to destination if destination type is not a command
@@ -89,6 +87,26 @@ func (c *Connection) Start() {
 	}
 }
 
+func (c *Connection) RemoveConnection() {
+	fmt.Println("removing")
+	iClients, exists := (*c.OnlineUsers).Load(c.ID)
+	if exists {
+		connections := iClients.([]*Connection)
+		conIdx := 0
+		for i, con := range connections {
+			if c.UUID == con.UUID {
+				conIdx = i
+			}
+		}
+		connections = append(connections[:conIdx], connections[conIdx+1:]...)
+		if len(connections) == 0 {
+			(*c.OnlineUsers).Delete(c.ID)
+		} else {
+			(*c.OnlineUsers).Store(c.ID, connections)
+		}
+	}
+}
+
 /******
  ##CHAT GOROUTINE
 ******/
@@ -99,26 +117,42 @@ func (c *Connection) Ping() {
 	}}
 	for {
 		time.Sleep(10 * time.Second)
-		c.GetmessageChannel() <- msg
+		c.SendMessage(msg)
 	}
 }
 
+func (c *Connection) IsChanClosed(ch <-chan interface{}) bool {
+	select {
+	case <-ch:
+		return true
+	default:
+	}
+
+	return false
+}
+
 func (c *Connection) handleClientMessage() {
+	defer func() {
+		c.Close()
+		//c.OnlineUsers.Delete(c.ID)
+		c.RemoveConnection()
+		if !c.IsChanClosed(c.messageChannel) {
+			close(c.messageChannel)
+		}
+
+		fmt.Println("Closing from Write", c.ID)
+	}()
 	for {
-		msg := <-c.messageChannel
+		msg, ok := <-c.messageChannel
+		if !ok {
+			break
+		}
 
 		err := c.WriteJSON(msg)
 		if err != nil {
-			if strings.Contains(err.Error(), "closed network connection") || strings.Contains(err.Error(), "websocket: close") {
-				c.Close()
-				//delete(*c.OnlineUsers, c.ID)
-				return
-			}
 			fmt.Println(err)
-			continue
+			break
 		}
-
-		//fmt.Printf("message receivd chatId: %s, ChatId Length: %d, %s: %f\n", msg.ChatId, len(msg.ChatId), msg.SenderId, msg.Msg["count"].(float64))
 	}
 }
 
@@ -161,8 +195,8 @@ func (c *Connection) onMessageDelivered(msg MessageModel.MessagePayload) {
 		iDstClient, exists := (*c.OnlineUsers).Load(elMsg.SenderId) //(*c.OnlineUsers)[elMsg.SenderId]
 		resp := []MessageModel.MessagePayload{elMsg}
 		if exists {
-			dstClient := iDstClient.(*Connection)
-			dstClient.GetmessageChannel() <- resp
+			dstClient := iDstClient.([]*Connection)
+			c.BroadcastToClientId(dstClient, resp)
 		}
 		//}
 	}
@@ -188,8 +222,8 @@ func (c *Connection) onMessageReaded(msg MessageModel.MessagePayload) {
 		iDstClient, exists := (*c.OnlineUsers).Load(elMsg.SenderId) //(*c.OnlineUsers)[elMsg.SenderId]
 		resp := []MessageModel.MessagePayload{elMsg}
 		if exists {
-			dstClient := iDstClient.(*Connection)
-			dstClient.GetmessageChannel() <- resp
+			dstClient := iDstClient.([]*Connection)
+			c.BroadcastToClientId(dstClient, resp)
 		}
 	}
 }
@@ -205,7 +239,7 @@ func (c *Connection) onGetPendingMessage() {
 		}
 
 		if len(res) > 0 {
-			c.GetmessageChannel() <- res
+			c.SendMessage(res)
 		}
 	} else {
 		fmt.Println("err get pending message", err)
@@ -219,7 +253,7 @@ func (c *Connection) onGetHistory(msg MessageModel.MessagePayload) {
 	if !limitValid || !offsetValid {
 		msg := h.GenerateErrorResponse(msg.OwnerId, "user", "invalid limit or offset value")
 		resp := []MessageModel.MessagePayload{msg}
-		c.GetmessageChannel() <- resp
+		c.SendMessage(resp)
 		return
 	}
 
@@ -227,14 +261,14 @@ func (c *Connection) onGetHistory(msg MessageModel.MessagePayload) {
 	if err != nil {
 		msg := h.GenerateErrorResponse(msg.OwnerId, "user", "Error get chat history")
 		resp := []MessageModel.MessagePayload{msg}
-		c.GetmessageChannel() <- resp
+		c.SendMessage(resp)
 		return
 	}
 
 	for i, _ := range res {
 		res[i].MessageType = "chat-history"
 	}
-	c.GetmessageChannel() <- res
+	c.SendMessage(res)
 }
 
 func (c *Connection) onGetChatList(msg MessageModel.MessagePayload) {
@@ -244,7 +278,7 @@ func (c *Connection) onGetChatList(msg MessageModel.MessagePayload) {
 	if !limitValid || !offsetValid {
 		msg := h.GenerateErrorResponse(msg.OwnerId, "user", "invalid limit or offset value")
 		resp := []MessageModel.MessagePayload{msg}
-		c.GetmessageChannel() <- resp
+		c.SendMessage(resp)
 		return
 	}
 
@@ -253,7 +287,7 @@ func (c *Connection) onGetChatList(msg MessageModel.MessagePayload) {
 		msg := h.GenerateErrorResponse(msg.OwnerId, "user", "Error get chat history")
 		fmt.Println("ERROR GET CHAT LIST", err)
 		resp := []MessageModel.MessagePayload{msg}
-		c.GetmessageChannel() <- resp
+		c.SendMessage(resp)
 		return
 	}
 
@@ -261,7 +295,7 @@ func (c *Connection) onGetChatList(msg MessageModel.MessagePayload) {
 		res[i].MessageType = "chat-list"
 	}
 
-	c.GetmessageChannel() <- res
+	c.SendMessage(res)
 }
 
 func (c *Connection) OnUserOnline() {
@@ -287,7 +321,7 @@ func (c *Connection) OnUserOffline() {
 func (c *Connection) onGetUserStatus(msg MessageModel.MessagePayload) {
 	res, err := c.UserRepo.GetUserInfo(msg.DestinationId)
 	if err != nil {
-		fmt.Println("ERROR GET MESSAGE ", err)
+		fmt.Println("ERROR GET USER STATUS ", err)
 		return
 	}
 	msg.Msg = make(map[string]interface{})
@@ -298,7 +332,7 @@ func (c *Connection) onGetUserStatus(msg MessageModel.MessagePayload) {
 
 	resp := []MessageModel.MessagePayload{msg}
 
-	c.GetmessageChannel() <- resp
+	c.SendMessage(resp)
 }
 
 /******##END CHAT EVENTS******/
@@ -306,6 +340,21 @@ func (c *Connection) onGetUserStatus(msg MessageModel.MessagePayload) {
 /******
  ##START SOCKET COMMAND
 ******/
+
+// send message to all connected socket with same id
+func (c *Connection) BroadcastToClientId(clients []*Connection, msg interface{}) {
+	for _, cl := range clients {
+		cl.SendMessage(msg)
+	}
+}
+
+func (c *Connection) SendMessage(msg interface{}) {
+	ch, isClosed := c.GetmessageChannel()
+	if !isClosed {
+		ch <- msg
+	}
+}
+
 func (c *Connection) Send(msg MessageModel.MessagePayload) {
 	switch msg.DestinationType {
 	case "room":
@@ -339,13 +388,14 @@ func (c *Connection) sendToPrivate(msg MessageModel.MessagePayload) {
 		msg.OwnerId = msg.DestinationId
 		go c.handleInsertMessage(msg)
 	} else {
-		dstClient := iDstClient.(*Connection)
-		msg.OwnerId = dstClient.ID
-		go dstClient.handleInsertMessage(msg)
-
-		// make private to array
+		dstClient := iDstClient.([]*Connection)
 		resp := []MessageModel.MessagePayload{msg}
-		dstClient.GetmessageChannel() <- resp
+		for _, cl := range dstClient {
+			msg.OwnerId = cl.ID
+			cl.SendMessage(resp)
+		}
+
+		go c.handleInsertMessage(msg)
 	}
 }
 

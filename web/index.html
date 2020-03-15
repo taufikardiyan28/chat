@@ -61,6 +61,7 @@
           <td>
             <input type="text" onblur="onDestinationIdChanged()" id="destination_id"/>
             <button onclick="getUserStatus()">Get Status</button>
+            <button onclick="closeConnection()">Close Connection</button>
           </td>
           <td>
             <span id="user-status"></span>
@@ -392,6 +393,9 @@
       ws.send(JSON.stringify(msg));
     }
 
+    function closeConnection(){
+      ws.close(); 
+    }
     /*var i =1;
     setInterval(function() {
       

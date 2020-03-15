@@ -80,9 +80,10 @@ func (a *Server) Start() {
 //Handle websocket connection
 func (a *Server) handleWSConnections(c echo.Context) error {
 	userId := c.QueryParam("id")
+	uid := strings.TrimSpace(c.QueryParam("uid"))
 	id := strings.TrimSpace(userId)
 
-	a.closePreviousConnection(id)
+	//a.closePreviousConnection(id)
 
 	c_info, err := a.UserRepo.GetUserInfo(id)
 	if err != nil {
@@ -95,9 +96,9 @@ func (a *Server) handleWSConnections(c echo.Context) error {
 		fmt.Println(err)
 		return c.JSON(401, map[string]interface{}{"status": "error", "msg": err})
 	}
-	defer ws.Close()
 
 	clientCon := &client.Connection{
+		UUID:        uid,
 		Config:      a.Config,
 		Conn:        ws,
 		User:        c_info,
@@ -107,9 +108,33 @@ func (a *Server) handleWSConnections(c echo.Context) error {
 		MessageRepo: a.MessageRepo,
 	}
 	//a.Clients[id] = clientCon
-	a.Clients.Store(id, clientCon)
+	//a.Clients.Store(id, clientCon)
+	a.AddClient(id, clientCon)
 	clientCon.Start()
 	return err
+}
+
+func (a *Server) AddClient(id string, newClient *client.Connection) {
+	iClient, exists := a.Clients.Load(id)
+	if exists {
+		clients := iClient.([]*client.Connection)
+		//fmt.Println("TOTAL KONEKSI :", id, "uuid"+newClient.UUID, len(clients))
+		conIdx := 0
+		for i, con := range clients {
+			if newClient.UUID == con.UUID {
+				fmt.Println("found closing")
+				con.Close()
+				conIdx = i
+			}
+		}
+		clients[conIdx] = newClient
+		//clients = append(clients, newClient)
+		a.Clients.Store(id, clients)
+	} else {
+		clients := []*client.Connection{}
+		clients = append(clients, newClient)
+		a.Clients.Store(id, clients)
+	}
 }
 
 func (a *Server) closePreviousConnection(id string) bool {
@@ -120,6 +145,7 @@ func (a *Server) closePreviousConnection(id string) bool {
 			return true
 		}
 	}*/
+
 	iClient, exists := a.Clients.Load(id)
 	if exists {
 		fmt.Println("ada")

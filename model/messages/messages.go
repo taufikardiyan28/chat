@@ -15,6 +15,7 @@ type (
 		InterlocutorsName string      `json:"interlocutors_name" bson:"interlocutors_name" db:"interlocutorsName"`
 		DestinationType   string      `json:"-" bson:"destination_type" db:"destinationType"`
 		LastMessage       MessageBody `json:"last_message" bson:"last_message" db:"lastMessage"`
+		UnreadCount       int         `json:"unread_count" bson:"unreaded_count" db:"unreadCount"`
 	}
 
 	MessagePayload struct {
