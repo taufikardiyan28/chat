@@ -117,7 +117,7 @@
     
     var urlParams = new URLSearchParams(window.location.search);
     id = urlParams.get('id');
-
+    uid = urlParams.get('uid');
     var loc = window.location;
     var uri = 'ws:';
 
@@ -125,7 +125,7 @@
       uri = 'wss:';
     }
     uri += loc.host + '/';
-    uri += 'ws?id=' + id;
+    uri += 'ws?id=' + id + '&uid='+uid;
 
     var ws = new WebSocket(uri)
 
