@@ -60,7 +60,7 @@ func (c *Connection) Start() {
 	//update online status
 	go c.OnUserOnline()
 
-	go c.Ping()
+	//go c.Ping()
 	//c.SetReadDeadline(time.Now().Add(time.Second * 5))
 	for {
 		msgPayload := MessageModel.MessagePayload{}
@@ -88,7 +88,7 @@ func (c *Connection) Start() {
 }
 
 func (c *Connection) RemoveConnection() {
-	fmt.Println("removing")
+	//fmt.Println("removing")
 	iClients, exists := (*c.OnlineUsers).Load(c.ID)
 	if exists {
 		connections := iClients.([]*Connection)
@@ -139,8 +139,7 @@ func (c *Connection) handleClientMessage() {
 		if !c.IsChanClosed(c.messageChannel) {
 			close(c.messageChannel)
 		}
-
-		fmt.Println("Closing from Write", c.ID)
+		//fmt.Println("Closing from Write", c.ID)
 	}()
 	for {
 		msg, ok := <-c.messageChannel
