@@ -18,6 +18,7 @@ CREATE TABLE `messages` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `ownerId` char(20) NOT NULL,
   `ownerType` char(5) NOT NULL,
+  `interlocutorsId` char(20) NOT NULL,
   `chatId` char(36) NOT NULL,
   `senderId` char(20) NOT NULL,
   `destinationId` char(20) NOT NULL,
@@ -30,13 +31,13 @@ CREATE TABLE `messages` (
 
 /*Data for the table `messages` */
 
-insert  into `messages`(`id`,`ownerId`,`ownerType`,`chatId`,`senderId`,`destinationId`,`destinationType`,`msg`,`createdAt`) values 
-(13,'085246497497','user','1ec225dd-26ac-414c-8563-7af47759be02','085246497497','085246497498','user','{\"status\": \"delivered\", \"content\": \"tess\", \"client_time\": 1581256391.187, \"sender_name\": \"Taufik\", \"server_time\": 1581256391, \"content_type\": \"text\", \"delivered_time\": 1581256391}','2020-02-09 20:53:11'),
-(18,'085246497497','user','7c35a01a-c524-4fd3-bf0f-16953d57248e','085246497498','085246497497','user','{\"status\": \"delivered\", \"content\": \"aaa\", \"client_time\": 1581260172.931, \"sender_name\": \"Topik\", \"server_time\": 1581260172, \"content_type\": \"text\", \"delivered_time\": 1581260172}','2020-02-09 21:56:12'),
-(15,'085246497497','user','83f833c3-6b85-4861-9de6-f4fadd2bd4a2','085246497498','085246497497','user','{\"status\": \"readed\", \"content\": \"aaaa\", \"client_time\": 1581256965.848, \"readed_time\": 1581259443, \"sender_name\": \"Topik\", \"server_time\": 1581256965, \"content_type\": \"text\", \"delivered_time\": 1581256965}','2020-02-09 21:02:45'),
-(14,'085246497498','user','1ec225dd-26ac-414c-8563-7af47759be02','085246497497','085246497498','user','{\"status\": \"delivered\", \"content\": \"tess\", \"client_time\": 1581256391.187, \"sender_name\": \"Taufik\", \"server_time\": 1581256391, \"content_type\": \"text\", \"delivered_time\": 1581256391}','2020-02-09 20:53:11'),
-(17,'085246497498','user','7c35a01a-c524-4fd3-bf0f-16953d57248e','085246497498','085246497497','user','{\"status\": \"delivered\", \"content\": \"aaa\", \"client_time\": 1581260172.931, \"sender_name\": \"Topik\", \"server_time\": 1581260172, \"content_type\": \"text\", \"delivered_time\": 1581260172}','2020-02-09 21:56:12'),
-(16,'085246497498','user','83f833c3-6b85-4861-9de6-f4fadd2bd4a2','085246497498','085246497497','user','{\"status\": \"readed\", \"content\": \"aaaa\", \"client_time\": 1581256965.848, \"readed_time\": 1581259443, \"sender_name\": \"Topik\", \"server_time\": 1581256965, \"content_type\": \"text\", \"delivered_time\": 1581256965}','2020-02-09 21:02:45');
+insert  into `messages`(`id`,`ownerId`,`ownerType`, `interlocutorsId`, `chatId`,`senderId`,`destinationId`,`destinationType`,`msg`,`createdAt`) values 
+(13,'085246497497','user','085246497498','1ec225dd-26ac-414c-8563-7af47759be02','085246497497','085246497498','user','{\"status\": \"delivered\", \"content\": \"tess\", \"client_time\": 1581256391.187, \"sender_name\": \"Taufik\", \"server_time\": 1581256391, \"content_type\": \"text\", \"delivered_time\": 1581256391}','2020-02-09 20:53:11'),
+(18,'085246497497','user','085246497498','7c35a01a-c524-4fd3-bf0f-16953d57248e','085246497498','085246497497','user','{\"status\": \"delivered\", \"content\": \"aaa\", \"client_time\": 1581260172.931, \"sender_name\": \"Topik\", \"server_time\": 1581260172, \"content_type\": \"text\", \"delivered_time\": 1581260172}','2020-02-09 21:56:12'),
+(15,'085246497497','user','085246497498','83f833c3-6b85-4861-9de6-f4fadd2bd4a2','085246497498','085246497497','user','{\"status\": \"readed\", \"content\": \"aaaa\", \"client_time\": 1581256965.848, \"readed_time\": 1581259443, \"sender_name\": \"Topik\", \"server_time\": 1581256965, \"content_type\": \"text\", \"delivered_time\": 1581256965}','2020-02-09 21:02:45'),
+(14,'085246497498','user','085246497497','1ec225dd-26ac-414c-8563-7af47759be02','085246497497','085246497498','user','{\"status\": \"delivered\", \"content\": \"tess\", \"client_time\": 1581256391.187, \"sender_name\": \"Taufik\", \"server_time\": 1581256391, \"content_type\": \"text\", \"delivered_time\": 1581256391}','2020-02-09 20:53:11'),
+(17,'085246497498','user','085246497497','7c35a01a-c524-4fd3-bf0f-16953d57248e','085246497498','085246497497','user','{\"status\": \"delivered\", \"content\": \"aaa\", \"client_time\": 1581260172.931, \"sender_name\": \"Topik\", \"server_time\": 1581260172, \"content_type\": \"text\", \"delivered_time\": 1581260172}','2020-02-09 21:56:12'),
+(16,'085246497498','user','085246497497','83f833c3-6b85-4861-9de6-f4fadd2bd4a2','085246497498','085246497497','user','{\"status\": \"readed\", \"content\": \"aaaa\", \"client_time\": 1581256965.848, \"readed_time\": 1581259443, \"sender_name\": \"Topik\", \"server_time\": 1581256965, \"content_type\": \"text\", \"delivered_time\": 1581256965}','2020-02-09 21:02:45');
 
 /*Table structure for table `users` */
 
