@@ -36,7 +36,7 @@ func (c *Repo) GetChatList(userId string, limit, offset int) ([]MessageModel.Cha
 }
 
 func (c *Repo) GetChatHistory(ownerId string, destId string, limit, offset int) ([]MessageModel.MessagePayload, error) {
-	strSQL := `SELECT id, ownerId, ownerType, chatId, senderId, destinationId, destinationType, msg, createdAt FROM messages 
+	strSQL := `SELECT id, ownerId, ownerType, chatId, interlocutorsId, senderId, destinationId, destinationType, msg, createdAt FROM messages 
 				WHERE ownerId=? AND (senderId=? OR destinationId=?) ORDER BY id DESC
 				LIMIT ?,?`
 	var res []MessageModel.MessagePayload
@@ -45,14 +45,14 @@ func (c *Repo) GetChatHistory(ownerId string, destId string, limit, offset int) 
 }
 
 func (c *Repo) GetPendingMessage(ownerId string) ([]MessageModel.MessagePayload, error) {
-	strSQL := `SELECT id, ownerId, ownerType, chatId, senderId, destinationId, destinationType, msg, createdAt FROM messages WHERE ownerId=? AND senderId<>? AND JSON_EXTRACT(msg, "$.status")=?`
+	strSQL := `SELECT id, ownerId, ownerType, chatId, interlocutorsId, senderId, destinationId, destinationType, msg, createdAt FROM messages WHERE ownerId=? AND senderId<>? AND JSON_EXTRACT(msg, "$.status")=?`
 	var res []MessageModel.MessagePayload
 	err := c.Pool.Select(&res, strSQL, ownerId, ownerId, "pending")
 	return res, err
 }
 
 func (c *Repo) GetMessage(msg MessageModel.MessagePayload) ([]MessageModel.MessagePayload, error) {
-	strSQL := `SELECT id, ownerId, ownerType, chatId, senderId, destinationId, destinationType, msg, createdAt FROM messages WHERE chatId=?`
+	strSQL := `SELECT id, ownerId, ownerType, chatId, interlocutorsId, senderId, destinationId, destinationType, msg, createdAt FROM messages WHERE chatId=?`
 	var res []MessageModel.MessagePayload
 	err := c.Pool.Select(&res, strSQL, msg.ChatId)
 	return res, err
