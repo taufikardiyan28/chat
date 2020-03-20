@@ -388,6 +388,7 @@ func (c *Connection) sendToPrivate(msg MessageModel.MessagePayload) {
 		go c.handleInsertMessage(msg)
 	} else {
 		dstClient := iDstClient.([]*Connection)
+		msg.InterlocutorsId = c.ID
 		resp := []MessageModel.MessagePayload{msg}
 		for _, cl := range dstClient {
 			msg.OwnerId = cl.ID
