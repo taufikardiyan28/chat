@@ -14,14 +14,14 @@ type Repo struct {
 func (c *Repo) GetChatList(userId string, limit, offset int) ([]MessageModel.Chat, error) {
 	strSQL := `SELECT a.chatId
 					, a.interlocutorsId
-					, c.name AS interlocutorsName
+					, IFNULL(c.name,'') AS interlocutorsName
 					, a.msg AS lastMessage
 					, b.unreadCount
 				FROM messages a
 				JOIN
 				(
 				SELECT MAX(id) AS id
-				, SUM(CASE WHEN JSON_EXTRACT(msg, "$.status") <>'readed' THEN 1 ELSE 0 END ) AS unreadCount
+				, SUM(CASE WHEN JSON_EXTRACT(msg, "$.status") <>'readed' AND senderId<>ownerId THEN 1 ELSE 0 END ) AS unreadCount
 				FROM messages WHERE ownerId = ?
 				GROUP BY interlocutorsId
 				) b ON a.id = b.id
@@ -40,6 +40,7 @@ func (c *Repo) GetChatHistory(ownerId string, destId string, limit, offset int) 
 				WHERE ownerId=? AND (senderId=? OR destinationId=?) ORDER BY id DESC
 				LIMIT ?,?`
 	var res []MessageModel.MessagePayload
+	offset = offset * limit
 	err := c.Pool.Select(&res, strSQL, ownerId, destId, destId, offset, limit)
 	return res, err
 }

@@ -267,6 +267,7 @@ func (c *Connection) onGetHistory(msg MessageModel.MessagePayload) {
 	for i, _ := range res {
 		res[i].MessageType = "chat-history"
 	}
+
 	c.SendMessage(res)
 }
 
