@@ -60,7 +60,7 @@ func (c *Connection) Start() {
 	//update online status
 	go c.OnUserOnline()
 
-	//go c.Ping()
+	go c.Ping()
 	//c.SetReadDeadline(time.Now().Add(time.Second * 5))
 	for {
 		msgPayload := MessageModel.MessagePayload{}
