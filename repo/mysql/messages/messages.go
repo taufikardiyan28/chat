@@ -40,7 +40,6 @@ func (c *Repo) GetChatHistory(ownerId string, destId string, limit, offset int) 
 				WHERE ownerId=? AND (senderId=? OR destinationId=?) ORDER BY id DESC
 				LIMIT ?,?`
 	var res []MessageModel.MessagePayload
-	offset = offset * limit
 	err := c.Pool.Select(&res, strSQL, ownerId, destId, destId, offset, limit)
 	return res, err
 }
